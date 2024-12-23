@@ -1,12 +1,12 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, WorkspaceMobileDrawer, WorkspaceSidedock } from 'obsidian';
 
 interface OpenSidebarHoverSettings {
 	leftSidebar: boolean;
 	rightSidebar: boolean;
 	enforceSameDelay: boolean;
-	sidebarDelayBoth: int;
-	sidebarDelayRight: int;
-	sidebarDelayLeft: int;
+	sidebarDelayBoth: string;
+	sidebarDelayRight: string;
+	sidebarDelayLeft: string;
 	speedDetection: boolean;
 }
 
@@ -22,8 +22,14 @@ const DEFAULT_SETTINGS: OpenSidebarHoverSettings = {
 
 export default class OpenSidebarHover extends Plugin {
 	settings: OpenSidebarHoverSettings;
+	isHoveringLeft = false;
+	isHoveringRight = false;
+	leftSplit: WorkspaceSidedock | WorkspaceMobileDrawer
+	rightSplit: WorkspaceSidedock | WorkspaceMobileDrawer
+	delayTime:number
 
 	async onload() {
+		console.log('yo?')
 		await this.loadSettings();		
 		
 		/*
@@ -33,105 +39,131 @@ export default class OpenSidebarHover extends Plugin {
 		*/
 		this.app.workspace.onLayoutReady(() => {
 			//Split constants -- Just streamlines calling them
-			const leftSplit = this.app.workspace.leftSplit;
-			const rightSplit = this.app.workspace.rightSplit;
+			this.leftSplit = this.app.workspace.leftSplit;
+			this.rightSplit = this.app.workspace.rightSplit;
 			
 			//Ribbon constants -- Just streamlines calling them a bit
 			const leftRibbon = this.app.workspace.leftRibbon;
 			const rightRibbon = this.app.workspace.rightRibbon;
 			
-			//Settings constant -- Same as above
-			const settingsConst = this.settings;
-			
-			//Variables
-			let isHovering = false; //Variable to check if the cursor is hovering. Needed due to Obsidian's behaviour on the top bar.
-			
-			let delayTime;
-			
-			//Check to see if the cursor has left the leftSplit area...
-			this.registerDomEvent(leftSplit.containerEl, "mouseleave", () => {
-				if(settingsConst.leftSidebar){ //Check to see if the user has the 'Left Sidebar Hover' setting enabled.
-					isHovering = false;
-					
-					if(settingsConst.enforceSameDelay){
-						delayTime = settingsConst.sidebarDelayBoth;
-					}else {
-						delayTime = settingsConst.sidebarDelayLeft;
+			// Check for hover on right side of editor with mousemove comapred to editor width 
+            document.addEventListener('mousemove', (event) => {
+				if(!this.isHoveringRight) {
+					const editorWidth = this.getEditorWidth();
+					const mouseX = event.clientX;
+	
+				    // Check if mouse is within 20 pixels of the right edge
+					let shouldRightExpand = mouseX >= editorWidth - 20 
+	
+					if (shouldRightExpand) {
+						this.isHoveringRight = true
+						this.rightSplit.expand();
 					}
-					
-					setTimeout(() => {
-						if(!isHovering)
-							leftSplit.collapse(); //...if it has after the appropriate delay length, close the leftSplit...
-					}, delayTime);
-
-					this.registerDomEvent(leftSplit.containerEl, "mouseenter", () => {
-						isHovering = true; //...but if the mouse reenters before the delay length, set 'isHovering' to true, preventing the above from happening.
-					});
 				}
-			});
+               
+
+				// setTimeout(() => {
+				// 	if(!isHoveringRight)
+				// 		rightSplit.collapse(); 
+				// }, delayTime);
+            });
+
 			
+
+			// this.registerDomEvent(rightSplit.containerEl, "mouseleave", () => {
+			// 	isHoveringRight = false;
+			
+			// 	setTimeout(() => {
+			// 		if (!isHoveringRight)
+			// 			rightSplit.collapse();
+			// 	}, delayTime);
+			// });
+
+
 			//Check to see if the cursor has left the leftSplit area...
-			this.registerDomEvent(rightSplit.containerEl, "mouseleave", () => {
-				//Check to see if the user has the 'Right Sidebar Hover' setting enabled.
-				if(settingsConst.rightSidebar){
-					isHovering = false;
+			// this.registerDomEvent(leftSplit.containerEl, "mouseleave", () => {
+			// 	if(this.settings.leftSidebar){ //Check to see if the user has the 'Left Sidebar Hover' setting enabled.
+			// 		isHoveringLeft = false;
 					
-					if(settingsConst.enforceSameDelay){
-						let delayTime = settingsConst.sidebarDelayBoth;
-					}else {
-						let delayTime = settingsConst.sidebarDelayLeft;
-					}
+			// 		if(this.settings.enforceSameDelay){
+			// 			delayTime = this.settings.sidebarDelayBoth;
+			// 		}else {
+			// 			delayTime = this.settings.sidebarDelayLeft;
+			// 		}
 					
-					setTimeout(() => {
-						if(!isHovering)
-							rightSplit.collapse(); //...if it has after the appropriate delay length, close the rightSplit...
-					}, delayTime);
+			// 		setTimeout(() => {
+			// 			if(!isHoveringLeft)
+			// 				leftSplit.collapse(); //...if it has after the appropriate delay length, close the leftSplit...
+			// 		}, delayTime);
 
-					this.registerDomEvent(rightSplit.containerEl, "mouseenter", () => {
-						isHovering = true; //...but if the mouse reenters before the delay length, set 'isHovering' to true, preventing the above from happening.
-					});
-				}
-			});
+			// 		this.registerDomEvent(leftSplit.containerEl, "mouseenter", () => {
+			// 			isHoveringLeft = true; //...but if the mouse reenters before the delay length, set 'isHovering' to true, preventing the above from happening.
+			// 		});
+			// 	}
+			// });
 			
-			this.registerDomEvent(document, "mouseleave", () => { isHovering = true; }) //Any time the cursor leaves the application (which includes the top bar), set 'isHovering' to true.
+			// //Check to see if the cursor has left the leftSplit area...
+			// this.registerDomEvent(rightSplit.containerEl, "mouseleave", () => {
+			// 	//Check to see if the user has the 'Right Sidebar Hover' setting enabled.
+			// 	if(this.settings.rightSidebar){
+			// 		isHoveringLeft = false;
+					
+			// 		if(this.settings.enforceSameDelay){
+			// 			let delayTime = this.settings.sidebarDelayBoth;
+			// 		}else {
+			// 			let delayTime = this.settings.sidebarDelayLeft;
+			// 		}
+					
+			// 		setTimeout(() => {
+			// 			if(!isHoveringLeft)
+			// 				rightSplit.collapse(); //...if it has after the appropriate delay length, close the rightSplit...
+			// 		}, delayTime);
+
+			// 		this.registerDomEvent(rightSplit.containerEl, "mouseenter", () => {
+			// 			isHoveringLeft = true; //...but if the mouse reenters before the delay length, set 'isHovering' to true, preventing the above from happening.
+			// 		});
+			// 	}
+			// });
+			
+			this.registerDomEvent(document, "mouseleave", () => { this.isHoveringLeft = true; }) //Any time the cursor leaves the application (which includes the top bar), set 'isHovering' to true.
 			
 			this.registerDomEvent(leftRibbon.containerEl, "mouseenter", () => {
-				if(settingsConst.leftSidebar){
+				if(this.settings.leftSidebar){
 					this.app.workspace.leftSplit.expand(); 
-					isHovering = true;
+					this.isHoveringLeft = true;
 				}
 			});
-			this.registerDomEvent(rightRibbon.containerEl, "mouseenter", () => {
-				if(settingsConst.rightSidebar){
-					this.app.workspace.rightSplit.expand();
-					isHovering = true;
-				}
-			});
+			// this.registerDomEvent(rightRibbon.containerEl, "mouseenter", () => {
+			// 	if(this.settings.rightSidebar){
+			// 		this.app.workspace.rightSplit.expand();
+			// 		isHoveringLeft = true;
+			// 	}
+			// });
 			this.registerDomEvent(document, "mouseenter", () => {
-				isHovering = false;
+				this.isHoveringLeft = false;
 				
 				let delayTimeLeft;
 				let delayTimeRight;
 				
 				//If 'Same delay' setting is enabled...
-				if(settingsConst.enforceSameDelay){
-					delayTimeLeft = settingsConst.sidebarDelayBoth;
-					delayTimeRight = settingsConst.sidebarDelayBoth; //...set both the right and left sidebar's delay values to the delay value set for both by the user...
+				if(this.settings.enforceSameDelay){
+					delayTimeLeft = this.settings.sidebarDelayBoth;
+					delayTimeRight = this.settings.sidebarDelayBoth; //...set both the right and left sidebar's delay values to the delay value set for both by the user...
 				}else {
-					delayTimeLeft = settingsConst.sidebarDelayLeft;
-					delayTimeRight = settingsConst.sidebarDelayRight; //...otherwise, set them according to their respective delay values!
+					delayTimeLeft = this.settings.sidebarDelayLeft;
+					delayTimeRight = this.settings.sidebarDelayRight; //...otherwise, set them according to their respective delay values!
 				}
 				
-				setTimeout(() => {
-					if(!isHovering){
-						if(settingsConst.leftSidebar){
-							leftSplit.collapse();
-						}
-						if(settingsConst.rightSidebar){
-							rightSplit.collapse();
-						}
-					}
-				}, delayTimeLeft);
+				// setTimeout(() => {
+				// 	if(!isHoveringLeft){
+				// 		if(this.settings.leftSidebar){
+				// 			leftSplit.collapse();
+				// 		}
+				// 		if(this.settings.rightSidebar){
+				// 			rightSplit.collapse();
+				// 		}
+				// 	}
+				// }, delayTimeLeft);
 			})
 		});
 
@@ -141,6 +173,13 @@ export default class OpenSidebarHover extends Plugin {
 
 	onunload() {
 		this.saveSettings();
+
+		// remove all event listeners 
+		document.removeEventListener('mousemove', this.mouseMoveHandler);
+        this.app.workspace.rightSplit.containerEl.removeEventListener("mouseenter", this.rightSplitMouseEnterHandler);
+        this.app.workspace.rightSplit.containerEl.removeEventListener("mouseleave", this.rightSplitMouseLeaveHandler);
+        this.app.workspace.leftRibbon.containerEl.removeEventListener("mouseenter", this.leftRibbonMouseEnterHandler);
+        document.removeEventListener("mouseenter", this.documentMouseEnterHandler);
 	}
 
 	async loadSettings() {
@@ -150,6 +189,71 @@ export default class OpenSidebarHover extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+    // Helpers
+	getEditorWidth = () => this.app.workspace.containerEl.clientWidth;
+
+	// Event handlers 
+	mouseMoveHandler = (event) => {
+		const editorWidth = this.getEditorWidth();
+		const mouseX = event.clientX;
+
+		this.isHoveringRight = mouseX >= editorWidth - 20;
+
+		if (this.isHoveringRight) {
+			this.rightSplit.expand();
+		}
+
+		setTimeout(() => {
+			if (!this.isHoveringRight)
+				this.rightSplit.collapse();
+		}, parseInt(this.settings.sidebarDelayBoth));
+	};
+
+	rightSplitMouseEnterHandler = () => {
+		this.isHoveringRight = true;
+	};
+
+	rightSplitMouseLeaveHandler = () => {
+		this.isHoveringRight = false;
+
+		setTimeout(() => {
+			if (!this.isHoveringRight)
+				this.rightSplit.collapse();
+		}, parseInt(this.settings.sidebarDelayBoth));
+	};
+
+	leftRibbonMouseEnterHandler = () => {
+		if (this.settings.leftSidebar) {
+			this.leftSplit.expand();
+			this.isHoveringLeft = true;
+		}
+	};
+
+	documentMouseEnterHandler = () => {
+		this.isHoveringLeft = false;
+
+		let delayTimeLeft;
+		let delayTimeRight;
+
+		if (this.settings.enforceSameDelay) {
+			delayTimeLeft = this.settings.sidebarDelayBoth;
+			delayTimeRight = this.settings.sidebarDelayBoth;
+		} else {
+			delayTimeLeft = this.settings.sidebarDelayLeft;
+			delayTimeRight = this.settings.sidebarDelayRight;
+		}
+
+		setTimeout(() => {
+			if (!this.isHoveringLeft) {
+				if (this.settings.leftSidebar) {
+					this.leftSplit.collapse();
+				}
+				if (this.settings.rightSidebar) {
+					this.rightSplit.collapse();
+				}
+			}
+		}, delayTimeLeft);
+	};
 }
 
 class SidebarHoverSettingsTab extends PluginSettingTab {
